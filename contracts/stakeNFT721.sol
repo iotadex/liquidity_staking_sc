@@ -48,6 +48,7 @@ contract StakeNftLiquidity is Ownable {
 
     uint8 public MAX_WEEKS;
     uint256 public MAX_SCALE;
+    uint24 public constant WEEK_SECONDS = 604800;
 
     constructor(
         address tokenA,
@@ -69,7 +70,7 @@ contract StakeNftLiquidity is Ownable {
     function stake(uint256 tokenId, uint8 k) external {
         require(k > 0 && k <= MAX_WEEKS, "stake weeks error");
         uint256 liquidity = _deposit(tokenId);
-        uint256 weekNumber = block.timestamp / 604800 + 1;
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS + 1;
         uint256 score = getScore(liquidity, k);
 
         for (uint8 i = 0; i < k; i++) {
@@ -89,7 +90,7 @@ contract StakeNftLiquidity is Ownable {
 
     function withdraw(uint256 tokenId) external {
         require(stakingNFTs[tokenId].owner == msg.sender, "owner forbidden");
-        uint256 weekNumber = block.timestamp / 604800;
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         require(stakingNFTs[tokenId].endNo <= weekNumber, "locked time");
         uint256[] storage ids = userNFTs[msg.sender];
         for (uint256 i = 0; i < ids.length; i++) {
@@ -105,7 +106,7 @@ contract StakeNftLiquidity is Ownable {
 
     function claimReward(uint256 tokenId, uint256[] memory Nos) external {
         require(stakingNFTs[tokenId].owner == msg.sender, "owner forbidden");
-        uint256 weekNumber = block.timestamp / 604800;
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         uint256 total = 0;
         for (uint256 i = 0; i < Nos.length; i++) {
             uint256 no = Nos[i];
@@ -131,7 +132,7 @@ contract StakeNftLiquidity is Ownable {
     }
 
     function claimReward() external {
-        uint256 weekNumber = block.timestamp / 604800;
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         uint256 total = 0;
         for (uint256 i = 0; i < userNFTs[msg.sender].length; i++) {
             uint256 tokenId = userNFTs[msg.sender][i];
@@ -140,16 +141,13 @@ contract StakeNftLiquidity is Ownable {
                 no < stakingNFTs[tokenId].endNo;
                 no++
             ) {
-                if (bClaimReward[tokenId][no]) {
-                    continue;
-                }
                 if (
+                    bClaimReward[tokenId][no] ||
                     no >= stakingNFTs[tokenId].endNo ||
-                    no < stakingNFTs[tokenId].beginNo
+                    no < stakingNFTs[tokenId].beginNo ||
+                    no > weekNumber ||
+                    rewardsOf[no] == 0
                 ) {
-                    continue;
-                }
-                if (no > weekNumber || rewardsOf[no] == 0) {
                     continue;
                 }
                 bClaimReward[tokenId][no] = true;
@@ -176,7 +174,7 @@ contract StakeNftLiquidity is Ownable {
 
     function getUserNFTs() external view returns (uint256[] memory, uint256) {
         uint256[] memory ids = new uint256[](userNFTs[msg.sender].length);
-        uint256 weekNumber = block.timestamp / 604800;
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         uint256 front = 0;
         uint256 end = userNFTs[msg.sender].length;
         for (uint256 i = 0; i < userNFTs[msg.sender].length; i++) {
