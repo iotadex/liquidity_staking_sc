@@ -237,6 +237,7 @@ contract StakeLiquidity is Ownable {
 
     function setScoreFormula(uint8 maxWeeks, uint256 maxScale) external {
         require(msg.sender == owner, "forbidden");
+        require(maxScale > 1, "maxScale too small");
         MAX_WEEKS = maxWeeks;
         MAX_SCALE = maxScale;
     }
