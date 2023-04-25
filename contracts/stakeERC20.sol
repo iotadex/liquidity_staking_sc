@@ -3,35 +3,26 @@
 
 pragma solidity =0.8.17;
 
-import "./interfaces/IIotabeeSwapNFT.sol";
+import "./interfaces/IERC20.sol";
 import "./ownable.sol";
 
-contract StakeLiquidity is Ownable {
+contract StakeERC20Liquidity is Ownable {
+    /*
     /// @dev Division constant
     uint32 public constant divConst = 1000000;
-    /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
-    int24 internal constant MIN_TICK = -887272;
-    /// @dev The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
-    int24 internal constant MAX_TICK = -MIN_TICK;
 
-    // nft token address for swap of v3
-    IIotabeeSwapNFT public immutable nftToken;
-    // token0, token1 are the pair of pool, token0 < token1
-    address public immutable token0;
-    address public immutable token1;
+    // erc20 token address for swap of v2
+    address public immutable lpToken;
     // token address, to set by the owner
     address public immutable rewardToken;
 
-    struct StakingNFT {
-        address owner; // owner of NFT
+    struct StakingERC20 {
         uint256 score; // score of the amount
         uint256 beginNo; // as week number, contained
         uint256 endNo; // as week number, not contained
     }
-    // all the NFTs, tokenId => stakingNFT
-    mapping(uint256 => StakingNFT) public stakingNFTs;
-    // user address => tokenIds of NFT
-    mapping(address => uint256[]) public userNFTs;
+    // user address => StakingERC20s
+    mapping(address => StakingERC20[]) public userERC20s;
     // tokenId => week number => reward is claimed or not
     mapping(uint256 => mapping(uint256 => bool)) public bClaimReward;
     // weekNumber => score
@@ -47,12 +38,7 @@ contract StakeLiquidity is Ownable {
     uint8 public MAX_WEEKS;
     uint256 public MAX_SCALE;
 
-    constructor(
-        address tokenA,
-        address tokenB,
-        address nft,
-        address _rewardToken
-    ) {
+    constructor(address _lpToken, address _rewardToken) {
         owner = msg.sender;
         (token0, token1) = tokenA < tokenB
             ? (tokenA, tokenB)
@@ -161,12 +147,12 @@ contract StakeLiquidity is Ownable {
         }
     }
 
-    /**
-     * @dev get score based on amount and number of weeks staked
-     * @param amount amount of liquidity tokens staked
-     * @param k number of weeks staked
-     * @return score
-     */
+    
+    // * @dev get score based on amount and number of weeks staked
+    // * @param amount amount of liquidity tokens staked
+    // * @param k number of weeks staked
+    // * @return score
+     
     function getScore(uint256 amount, uint8 k) public view returns (uint256) {
         // Y = MX + B
         // Y = Multiplier
@@ -240,5 +226,5 @@ contract StakeLiquidity is Ownable {
         require(maxScale > 1, "maxScale too small");
         MAX_WEEKS = maxWeeks;
         MAX_SCALE = maxScale;
-    }
+    */
 }
