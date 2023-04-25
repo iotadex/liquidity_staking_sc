@@ -88,20 +88,10 @@ contract StakeNftLiquidity is Ownable {
         emit Stake(msg.sender, tokenId, liquidity, k);
     }
 
-    function withdraw(uint256 tokenId) external {
-        require(stakingNFTs[tokenId].owner == msg.sender, "owner forbidden");
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
-        require(stakingNFTs[tokenId].endNo <= weekNumber, "locked time");
-        uint256[] storage ids = userNFTs[msg.sender];
-        for (uint256 i = 0; i < ids.length; i++) {
-            if (tokenId == ids[i]) {
-                ids[i] = ids[ids.length - 1];
-                ids.pop();
-                nftToken.safeTransferFrom(address(this), msg.sender, tokenId);
-                break;
-            }
+    function withdraw(uint256[] memory tokenIds) external {
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            _withdraw(tokenIds[i]);
         }
-        emit Withdraw(msg.sender, tokenId);
     }
 
     function claimReward(uint256 tokenId, uint256[] memory Nos) external {
@@ -114,12 +104,12 @@ contract StakeNftLiquidity is Ownable {
                 continue;
             }
             if (
+                bClaimReward[tokenId][no] ||
                 no >= stakingNFTs[tokenId].endNo ||
-                no < stakingNFTs[tokenId].beginNo
+                no < stakingNFTs[tokenId].beginNo ||
+                no > weekNumber ||
+                rewardsOf[no] == 0
             ) {
-                continue;
-            }
-            if (no > weekNumber || rewardsOf[no] == 0) {
                 continue;
             }
             bClaimReward[tokenId][no] = true;
@@ -143,8 +133,6 @@ contract StakeNftLiquidity is Ownable {
             ) {
                 if (
                     bClaimReward[tokenId][no] ||
-                    no >= stakingNFTs[tokenId].endNo ||
-                    no < stakingNFTs[tokenId].beginNo ||
                     no > weekNumber ||
                     rewardsOf[no] == 0
                 ) {
@@ -209,6 +197,22 @@ contract StakeNftLiquidity is Ownable {
         uint256 score = (amount * ((MAX_SCALE - 1) * k + MAX_WEEKS)) /
             MAX_WEEKS;
         return score;
+    }
+
+    function _withdraw(uint256 tokenId) internal {
+        require(stakingNFTs[tokenId].owner == msg.sender, "owner forbidden");
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
+        require(stakingNFTs[tokenId].endNo <= weekNumber, "locked time");
+        uint256[] storage ids = userNFTs[msg.sender];
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (tokenId == ids[i]) {
+                ids[i] = ids[ids.length - 1];
+                ids.pop();
+                nftToken.safeTransferFrom(address(this), msg.sender, tokenId);
+                break;
+            }
+        }
+        emit Withdraw(msg.sender, tokenId);
     }
 
     function _deposit(uint256 tokenId) internal returns (uint256) {
