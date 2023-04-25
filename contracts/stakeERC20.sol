@@ -3,61 +3,49 @@
 
 pragma solidity =0.8.17;
 
-import "./interfaces/IERC20.sol";
-import "./ownable.sol";
+import "./stakeBase.sol";
 
-contract StakeERC20Liquidity is Ownable {
-    /// @dev Division constant
-    uint32 public constant divConst = 1000000;
-
+contract StakeERC20 is StakeBase {
     // erc20 token address for swap of v2
     address public immutable lpToken;
-    // token address, to set by the owner
-    address public immutable rewardToken;
 
     struct StakingERC20 {
         uint256 amount; // lp token amount
         uint256 score; // score of the amount
         uint256 beginNo; // as week number, contained
         uint256 endNo; // as week number, not contained
-        uint256 toClaimedNo;
+        uint256 toClaimNo; //the latest week number to claim
     }
+    // the current index id to stake
     uint256 public nonce;
+    // id => stakingERC20, it will be delete when it's withdrew
     mapping(uint256 => StakingERC20) public stakingERC20s;
-    // user address => StakingERC20s
+    // user address => ids of stakingERC20s
     mapping(address => uint256[]) public userERC20s;
-    // nonce => week number => reward is claimed or not
-    mapping(uint256 => mapping(uint256 => bool)) public bClaimReward;
-    // weekNumber => score
-    mapping(uint256 => uint256) totalScores;
-    // the owner to set, week number => reward token amount
-    mapping(uint256 => uint256) public rewardsOf;
-    uint256 public latestNo;
 
-    event Stake(address indexed user, uint256 tokenId, uint256 amount, uint8 k);
-    event Withdraw(address indexed user, uint256 tokenId);
+    event Stake(address indexed user, uint256 id, uint256 amount, uint8 k);
+    event Withdraw(address indexed user, uint256 amount);
     event ClaimReward(address indexed user, uint256 amount);
-    event SetReward(address indexed user, uint256 no, uint256 amount);
 
-    uint8 public MAX_WEEKS;
-    uint256 public MAX_SCALE;
-    uint24 public constant WEEK_SECONDS = 604800;
-
-    constructor(address _lpToken, address _rewardToken) {
-        owner = msg.sender;
+    constructor(
+        uint8 maxWeeks,
+        uint256 maxScale,
+        address _rewardToken,
+        address _lpToken
+    ) StakeBase(maxWeeks, maxScale, _rewardToken) {
         lpToken = _lpToken;
-        rewardToken = _rewardToken;
-
-        MAX_WEEKS = 52;
-        MAX_SCALE = 2;
     }
 
+    /// @dev stake erc20 token of `amount` for k weeks
+    /// @param amount transfer erc20 token to this contract
+    /// @param k stake the token for k weeks
     function stake(uint256 amount, uint8 k) external {
         require(k > 0 && k <= MAX_WEEKS, "k 1~52");
         _safeTransferFrom(lpToken, msg.sender, address(this), amount);
         uint256 weekNumber = block.timestamp / WEEK_SECONDS + 1;
         uint256 score = getScore(amount, k);
 
+        // add score to totalScore of every week
         for (uint8 i = 0; i < k; i++) {
             totalScores[weekNumber + i] += score;
         }
@@ -75,19 +63,25 @@ contract StakeERC20Liquidity is Ownable {
         nonce++;
     }
 
-    function withdraw(uint256 amount) external {
+    /// @dev withdraw token to the caller, if the amount is not enough, it will be as close as possible
+    /// @param amount the token amount
+    /// @return total the real amount of erc20 token transfered
+    function withdraw(uint256 amount) external returns (uint256 total) {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS;
-        uint256 total = 0;
-        for (uint256 i = userERC20s[msg.sender].length; i >= 0; i--) {
+        for (uint256 i = userERC20s[msg.sender].length - 1; i >= 0; i--) {
+            // foreach every StakingERC20 from the last one
             uint id = userERC20s[msg.sender][i];
             if (stakingERC20s[id].endNo <= weekNumber) {
+                // when the staking erc20 token expire
                 total += stakingERC20s[id].amount;
                 if (total <= amount) {
+                    // if total is not bigger than amount, delete the staking token
                     userERC20s[msg.sender][i] = userERC20s[msg.sender][
                         userERC20s[msg.sender].length
                     ];
                     userERC20s[msg.sender].pop();
                 } else {
+                    // modify the amount of stakingERC20 to the left
                     stakingERC20s[id].amount = total - amount;
                     total = amount;
                 }
@@ -98,27 +92,29 @@ contract StakeERC20Liquidity is Ownable {
         }
         _safeTransfer(lpToken, msg.sender, total);
         emit Withdraw(msg.sender, total);
+        return total;
     }
 
+    /// @dev claim all the rewards for user's stakingERC20s
     function claimReward() external {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         uint256 total = 0;
         for (uint256 i = 0; i < userERC20s[msg.sender].length; i++) {
             uint256 id = userERC20s[msg.sender][i];
             for (
-                uint256 no = stakingERC20s[id].toClaimedNo;
+                uint256 no = stakingERC20s[id].toClaimNo;
                 no < stakingERC20s[id].endNo;
                 no++
             ) {
                 if (
-                    bClaimReward[id][no] ||
-                    no > weekNumber ||
-                    rewardsOf[no] == 0
+                    bClaimReward[id][no] || // cann't be claimed
+                    no > weekNumber || // cann't be over current week number
+                    rewardsOf[no] == 0 // cann't claim which don't set
                 ) {
                     continue;
                 }
                 bClaimReward[id][no] = true;
-                stakingERC20s[id].toClaimedNo = no + 1;
+                stakingERC20s[id].toClaimNo = no + 1;
                 total +=
                     (rewardsOf[no] * stakingERC20s[id].score) /
                     totalScores[no];
@@ -128,18 +124,15 @@ contract StakeERC20Liquidity is Ownable {
         emit ClaimReward(msg.sender, total);
     }
 
-    function setReward(uint256 no, uint256 amount) external {
-        require(msg.sender == owner, "forbidden");
-        _safeTransferFrom(rewardToken, msg.sender, address(this), amount);
-        rewardsOf[no] += amount;
-
-        emit SetReward(msg.sender, no, amount);
-    }
-
-    function getStaking() external view returns (uint256, uint256) {
+    /// @dev get the amount of user is staking
+    /// @return total all amount of lp token in this contract
+    /// @return staking the staking amount of lp token in this contract
+    function getStaking()
+        external
+        view
+        returns (uint256 total, uint256 staking)
+    {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS;
-        uint256 total = 0;
-        uint256 staking = 0;
         for (uint256 i = 0; i < userERC20s[msg.sender].length; i++) {
             uint256 id = userERC20s[msg.sender][i];
             uint256 amount = stakingERC20s[id].amount;
@@ -149,59 +142,5 @@ contract StakeERC20Liquidity is Ownable {
             total += amount;
         }
         return (total, staking);
-    }
-
-    // * @dev get score based on amount and number of weeks staked
-    // * @param amount amount of liquidity tokens staked
-    // * @param k number of weeks staked
-    // * @return score
-
-    function getScore(uint256 amount, uint8 k) public view returns (uint256) {
-        // Y = MX + B
-        // Y = Multiplier
-        // M = 1 / (52-1)
-        // X = weeks staked/locked
-        // B = 2 - M * 52
-        //uint256 precision = 10e18;
-        //uint256 m = (precision / (52 - 1));
-        //uint256 b = 2 * precision - 52 * m;
-        //uint256 score = (amount * (m * numPeriods + b)) / precision;
-        uint256 score = (amount * ((MAX_SCALE - 1) * k + MAX_WEEKS)) /
-            MAX_WEEKS;
-        return score;
-    }
-
-    function _safeTransfer(address token, address to, uint256 value) private {
-        // bytes4(keccak256(bytes('transfer(address,uint256)')));
-        (bool success, bytes memory data) = token.call(
-            abi.encodeWithSelector(0xa9059cbb, to, value)
-        );
-        require(
-            success && (data.length == 0 || abi.decode(data, (bool))),
-            "TRANSFER_FAILED"
-        );
-    }
-
-    function _safeTransferFrom(
-        address token,
-        address from,
-        address to,
-        uint256 value
-    ) private {
-        // bytes4(keccak256(bytes('transferFrom(address,address,uint256)')));
-        (bool success, bytes memory data) = token.call(
-            abi.encodeWithSelector(0x23b872dd, from, to, value)
-        );
-        require(
-            success && (data.length == 0 || abi.decode(data, (bool))),
-            "transferFrom failed"
-        );
-    }
-
-    function setScoreFormula(uint8 maxWeeks, uint256 maxScale) external {
-        require(msg.sender == owner, "forbidden");
-        require(maxScale > 1, "maxScale too small");
-        MAX_WEEKS = maxWeeks;
-        MAX_SCALE = maxScale;
     }
 }

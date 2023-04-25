@@ -4,11 +4,9 @@
 pragma solidity =0.8.17;
 
 import "./interfaces/IIotabeeSwapNFT.sol";
-import "./ownable.sol";
+import "./stakeBase.sol";
 
-contract StakeNftLiquidity is Ownable {
-    /// @dev Division constant
-    uint32 public constant divConst = 1000000;
+contract StakeNFT721 is StakeBase {
     /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
     int24 internal constant MIN_TICK = -887272;
     /// @dev The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
@@ -19,54 +17,40 @@ contract StakeNftLiquidity is Ownable {
     // token0, token1 are the pair of pool, token0 < token1
     address public immutable token0;
     address public immutable token1;
-    // token address, to set by the owner
-    address public immutable rewardToken;
 
     struct StakingNFT {
         address owner; // owner of NFT
         uint256 score; // score of the amount
         uint256 beginNo; // as week number, contained
         uint256 endNo; // as week number, not contained
-        uint256 toClaimedNo;
+        uint256 toClaimNo; // the latest week number to claim
     }
     // all the NFTs, tokenId => stakingNFT
     mapping(uint256 => StakingNFT) public stakingNFTs;
     // user address => tokenIds of NFT
     mapping(address => uint256[]) public userNFTs;
-    // tokenId => week number => reward is claimed or not
-    mapping(uint256 => mapping(uint256 => bool)) public bClaimReward;
-    // weekNumber => score
-    mapping(uint256 => uint256) totalScores;
-    // the owner to set, week number => reward token amount
-    mapping(uint256 => uint256) public rewardsOf;
-    uint256 public latestNo;
 
     event Stake(address indexed user, uint256 tokenId, uint256 amount, uint8 k);
     event Withdraw(address indexed user, uint256 tokenId);
     event ClaimReward(address indexed user, uint256 tokenId, uint256 amount);
-    event SetReward(address indexed user, uint256 no, uint256 amount);
-
-    uint8 public MAX_WEEKS;
-    uint256 public MAX_SCALE;
-    uint24 public constant WEEK_SECONDS = 604800;
 
     constructor(
+        uint8 maxWeeks,
+        uint256 maxScale,
+        address _rewardToken,
         address tokenA,
         address tokenB,
-        address nft,
-        address _rewardToken
-    ) {
-        owner = msg.sender;
+        address nft
+    ) StakeBase(maxWeeks, maxScale, _rewardToken) {
         (token0, token1) = tokenA < tokenB
             ? (tokenA, tokenB)
             : (tokenB, tokenA);
         nftToken = IIotabeeSwapNFT(nft);
-        rewardToken = _rewardToken;
-
-        MAX_WEEKS = 52;
-        MAX_SCALE = 2;
     }
 
+    /// @dev stake NFT for k weeks
+    /// @param tokenId the tokenId of NFT
+    /// @param k stake the token for k weeks
     function stake(uint256 tokenId, uint8 k) external {
         require(k > 0 && k <= MAX_WEEKS, "stake weeks error");
         uint256 liquidity = _deposit(tokenId);
@@ -88,18 +72,40 @@ contract StakeNftLiquidity is Ownable {
         emit Stake(msg.sender, tokenId, liquidity, k);
     }
 
+    /// @dev withdraw NFT to the caller, all the tokenIds must be eligible
+    /// @param tokenIds of NFT
     function withdraw(uint256[] memory tokenIds) external {
         for (uint256 i = 0; i < tokenIds.length; i++) {
-            _withdraw(tokenIds[i]);
+            withdraw(tokenIds[i]);
         }
     }
 
-    function claimReward(uint256 tokenId, uint256[] memory Nos) external {
+    /// @dev withdraw NFT to user
+    function withdraw(uint256 tokenId) public {
+        require(stakingNFTs[tokenId].owner == msg.sender, "owner forbidden");
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
+        require(stakingNFTs[tokenId].endNo <= weekNumber, "locked time");
+        uint256[] storage ids = userNFTs[msg.sender];
+        for (uint256 i = 0; i < ids.length; i++) {
+            if (tokenId == ids[i]) {
+                ids[i] = ids[ids.length - 1];
+                ids.pop();
+                nftToken.safeTransferFrom(address(this), msg.sender, tokenId);
+                break;
+            }
+        }
+        emit Withdraw(msg.sender, tokenId);
+    }
+
+    /// @dev claim the reward for NFT
+    /// @param tokenId of NFT
+    /// @param nos week numbers
+    function claimReward(uint256 tokenId, uint256[] memory nos) external {
         require(stakingNFTs[tokenId].owner == msg.sender, "owner forbidden");
         uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         uint256 total = 0;
-        for (uint256 i = 0; i < Nos.length; i++) {
-            uint256 no = Nos[i];
+        for (uint256 i = 0; i < nos.length; i++) {
+            uint256 no = nos[i];
             if (bClaimReward[tokenId][no]) {
                 continue;
             }
@@ -121,13 +127,14 @@ contract StakeNftLiquidity is Ownable {
         emit ClaimReward(msg.sender, tokenId, total);
     }
 
+    /// @dev claim the reward for all the NFTs
     function claimReward() external {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         uint256 total = 0;
         for (uint256 i = 0; i < userNFTs[msg.sender].length; i++) {
             uint256 tokenId = userNFTs[msg.sender][i];
             for (
-                uint256 no = stakingNFTs[tokenId].toClaimedNo;
+                uint256 no = stakingNFTs[tokenId].toClaimNo;
                 no < stakingNFTs[tokenId].endNo;
                 no++
             ) {
@@ -139,7 +146,7 @@ contract StakeNftLiquidity is Ownable {
                     continue;
                 }
                 bClaimReward[tokenId][no] = true;
-                stakingNFTs[tokenId].toClaimedNo = no + 1;
+                stakingNFTs[tokenId].toClaimNo = no + 1;
                 total +=
                     (rewardsOf[no] * stakingNFTs[tokenId].score) /
                     totalScores[no];
@@ -149,17 +156,9 @@ contract StakeNftLiquidity is Ownable {
         emit ClaimReward(msg.sender, 0, total);
     }
 
-    function setReward(uint256 no, uint256 amount) external {
-        require(msg.sender == owner, "forbidden");
-        _safeTransferFrom(rewardToken, msg.sender, address(this), amount);
-        rewardsOf[no] += amount;
-        if (no > latestNo) {
-            latestNo = no;
-        }
-
-        emit SetReward(msg.sender, no, amount);
-    }
-
+    /// @dev get all the user's NFTs that are staking
+    /// @return ids the front part are the staking and the back part are expire
+    /// @return end is the first index of back part
     function getUserNFTs() external view returns (uint256[] memory, uint256) {
         uint256[] memory ids = new uint256[](userNFTs[msg.sender].length);
         uint256 weekNumber = block.timestamp / WEEK_SECONDS;
@@ -178,43 +177,8 @@ contract StakeNftLiquidity is Ownable {
         return (ids, end);
     }
 
-    /**
-     * @dev get score based on amount and number of weeks staked
-     * @param amount amount of liquidity tokens staked
-     * @param k number of weeks staked
-     * @return score
-     */
-    function getScore(uint256 amount, uint8 k) public view returns (uint256) {
-        // Y = MX + B
-        // Y = Multiplier
-        // M = 1 / (52-1)
-        // X = weeks staked/locked
-        // B = 2 - M * 52
-        //uint256 precision = 10e18;
-        //uint256 m = (precision / (52 - 1));
-        //uint256 b = 2 * precision - 52 * m;
-        //uint256 score = (amount * (m * numPeriods + b)) / precision;
-        uint256 score = (amount * ((MAX_SCALE - 1) * k + MAX_WEEKS)) /
-            MAX_WEEKS;
-        return score;
-    }
-
-    function _withdraw(uint256 tokenId) internal {
-        require(stakingNFTs[tokenId].owner == msg.sender, "owner forbidden");
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
-        require(stakingNFTs[tokenId].endNo <= weekNumber, "locked time");
-        uint256[] storage ids = userNFTs[msg.sender];
-        for (uint256 i = 0; i < ids.length; i++) {
-            if (tokenId == ids[i]) {
-                ids[i] = ids[ids.length - 1];
-                ids.pop();
-                nftToken.safeTransferFrom(address(this), msg.sender, tokenId);
-                break;
-            }
-        }
-        emit Withdraw(msg.sender, tokenId);
-    }
-
+    /// @dev deposit user's NFT to this contract
+    /// @return liquidity the amount of NFT's liquidity
     function _deposit(uint256 tokenId) internal returns (uint256) {
         (
             ,
@@ -239,39 +203,5 @@ contract StakeNftLiquidity is Ownable {
         require(nftToken.getApproved(tokenId) == address(this), "not approve");
         nftToken.safeTransferFrom(msg.sender, address(this), tokenId);
         return liquidity;
-    }
-
-    function _safeTransfer(address token, address to, uint256 value) private {
-        // bytes4(keccak256(bytes('transfer(address,uint256)')));
-        (bool success, bytes memory data) = token.call(
-            abi.encodeWithSelector(0xa9059cbb, to, value)
-        );
-        require(
-            success && (data.length == 0 || abi.decode(data, (bool))),
-            "TRANSFER_FAILED"
-        );
-    }
-
-    function _safeTransferFrom(
-        address token,
-        address from,
-        address to,
-        uint256 value
-    ) private {
-        // bytes4(keccak256(bytes('transferFrom(address,address,uint256)')));
-        (bool success, bytes memory data) = token.call(
-            abi.encodeWithSelector(0x23b872dd, from, to, value)
-        );
-        require(
-            success && (data.length == 0 || abi.decode(data, (bool))),
-            "transferFrom failed"
-        );
-    }
-
-    function setScoreFormula(uint8 maxWeeks, uint256 maxScale) external {
-        require(msg.sender == owner, "forbidden");
-        require(maxScale > 1, "maxScale too small");
-        MAX_WEEKS = maxWeeks;
-        MAX_SCALE = maxScale;
     }
 }

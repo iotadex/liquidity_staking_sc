@@ -7,21 +7,17 @@
 const hre = require("hardhat");
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
+  const rewardToken = "0x8CB067473a564F2e72cBcd21d2e2d01CfcB4D222";
+  const StakeERC20 = await hre.ethers.getContractFactory("StakeERC20");
+  const erc20 = await StakeERC20.deploy(52, 2, rewardToken, "0x189eFf58f4E76F740adD2E235f5155b974C02C17");
+  await erc20.deployed();
+  console.log(`deployed StakeERC20 to ${erc20.address}`);
+  return;
 
-  const lockedAmount = hre.ethers.utils.parseEther("0.001");
-
-  const Lock = await hre.ethers.getContractFactory("Lock");
-  const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
-
-  await lock.deployed();
-
-  console.log(
-    `Lock with ${ethers.utils.formatEther(
-      lockedAmount
-    )}ETH and unlock timestamp ${unlockTime} deployed to ${lock.address}`
-  );
+  const StakeNFT721 = await hre.ethers.getContractFactory("StakeNFT721");
+  const nft = await StakeNFT721.deploy(52, 2, "", "", rewardToken, "0x9146142b4A4bDfc3496FEc84F160081a12715e0C");
+  await nft.deployed();
+  console.log(`deployed StakeNFT721 to ${nft.address}`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
