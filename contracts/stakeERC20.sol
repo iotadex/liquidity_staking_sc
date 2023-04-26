@@ -77,7 +77,7 @@ contract StakeERC20 is StakeBase {
                 if (total <= amount) {
                     // if total is not bigger than amount, delete the staking token
                     userERC20s[msg.sender][i] = userERC20s[msg.sender][
-                        userERC20s[msg.sender].length
+                        userERC20s[msg.sender].length - 1
                     ];
                     userERC20s[msg.sender].pop();
                 } else {
@@ -141,6 +141,5 @@ contract StakeERC20 is StakeBase {
             }
             total += amount;
         }
-        return (total, staking);
     }
 }
