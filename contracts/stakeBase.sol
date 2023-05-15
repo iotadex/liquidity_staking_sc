@@ -11,7 +11,7 @@ contract StakeBase is Ownable {
     // id => week number => reward is claimed or not
     mapping(uint256 => mapping(uint256 => bool)) public bClaimReward;
     // weekNumber => score
-    mapping(uint256 => uint256) totalScores;
+    mapping(uint256 => uint256) public totalScores;
     // the owner to set, week number => reward token amount
     mapping(uint256 => uint256) public rewardsOf;
     // the lastest week number
