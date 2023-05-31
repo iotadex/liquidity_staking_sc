@@ -20,13 +20,20 @@ contract StakeBase is Ownable {
     uint8 public immutable MAX_WEEKS;
     uint256 public immutable MAX_SCALE;
     uint24 public constant WEEK_SECONDS = 600;
+    uint8 public immutable LOCK_WEEKNUM;
 
     event SetReward(address indexed user, uint256 no, uint256 amount);
 
-    constructor(uint8 maxWeeks, uint256 maxScale, address _rewardToken) {
+    constructor(
+        uint8 maxWeeks,
+        uint256 maxScale,
+        uint8 lockWeeks,
+        address _rewardToken
+    ) {
         rewardToken = _rewardToken;
         MAX_WEEKS = maxWeeks;
         MAX_SCALE = maxScale;
+        LOCK_WEEKNUM = lockWeeks;
 
         owner = msg.sender;
     }

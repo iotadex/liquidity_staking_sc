@@ -30,9 +30,10 @@ contract StakeERC20 is StakeBase {
     constructor(
         uint8 maxWeeks,
         uint256 maxScale,
+        uint8 lockWeeks,
         address _rewardToken,
         address _lpToken
-    ) StakeBase(maxWeeks, maxScale, _rewardToken) {
+    ) StakeBase(maxWeeks, maxScale, lockWeeks, _rewardToken) {
         lpToken = _lpToken;
     }
 
@@ -97,7 +98,7 @@ contract StakeERC20 is StakeBase {
 
     /// @dev claim all the rewards for user's stakingERC20s
     function claimReward() external {
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
         uint256 total = 0;
         for (uint256 i = 0; i < userERC20s[msg.sender].length; i++) {
             uint256 id = userERC20s[msg.sender][i];
@@ -108,7 +109,7 @@ contract StakeERC20 is StakeBase {
             ) {
                 if (
                     bClaimReward[id][no] || // cann't be claimed
-                    no > weekNumber || // cann't be over current week number
+                    no > weekNumber || // cann't be over the locked week number
                     rewardsOf[no] == 0 // cann't claim which don't set
                 ) {
                     continue;

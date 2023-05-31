@@ -37,11 +37,12 @@ contract StakeNFT721 is StakeBase {
     constructor(
         uint8 maxWeeks,
         uint256 maxScale,
+        uint8 lockWeeks,
         address _rewardToken,
         address tokenA,
         address tokenB,
         address nft
-    ) StakeBase(maxWeeks, maxScale, _rewardToken) {
+    ) StakeBase(maxWeeks, maxScale, lockWeeks, _rewardToken) {
         (token0, token1) = tokenA < tokenB
             ? (tokenA, tokenB)
             : (tokenB, tokenA);
