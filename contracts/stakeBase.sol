@@ -24,6 +24,8 @@ contract StakeBase is Ownable {
     uint256 public immutable MAX_SCALE;
     uint24 public constant WEEK_SECONDS = 600;
     uint8 public immutable LOCK_WEEKNUM;
+    uint256 public immutable BEGIN_TIME;
+    uint256 public immutable END_TIME;
 
     event SetReward(address indexed user, uint256 no, uint256 amount);
     event ClaimReward(address indexed user, uint256 amount);
@@ -32,12 +34,16 @@ contract StakeBase is Ownable {
         uint8 maxWeeks,
         uint256 maxScale,
         uint8 lockWeeks,
+        uint256 beginTime,
+        uint256 endTime,
         address _rewardToken
     ) {
         rewardToken = _rewardToken;
         MAX_WEEKS = maxWeeks;
         MAX_SCALE = maxScale;
         LOCK_WEEKNUM = lockWeeks;
+        BEGIN_TIME = beginTime;
+        END_TIME = endTime;
 
         owner = msg.sender;
     }
@@ -64,6 +70,7 @@ contract StakeBase is Ownable {
         uint256[] memory amounts
     ) external returns (uint256 total) {
         require(msg.sender == owner, "forbidden");
+        require(nos.length == amounts.length, "parameters error");
         for (uint256 i = 0; i < nos.length; i++) {
             total += amounts[i];
             rewardsOf[nos[i]] = amounts[i];
@@ -73,6 +80,11 @@ contract StakeBase is Ownable {
         }
         _safeTransferFrom(rewardToken, msg.sender, address(this), total);
         emit SetReward(msg.sender, 0, total);
+    }
+
+    function withdrawRewards(uint256 amount) external {
+        require(msg.sender == owner, "forbidden");
+        _safeTransfer(rewardToken, msg.sender, amount);
     }
 
     /// @dev claim all the rewards for user's stakingERC20s

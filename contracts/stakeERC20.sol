@@ -29,9 +29,20 @@ contract StakeERC20 is StakeBase {
         uint8 maxWeeks,
         uint256 maxScale,
         uint8 lockWeeks,
+        uint256 beginTime,
+        uint256 endTime,
         address _rewardToken,
         address _lpToken
-    ) StakeBase(maxWeeks, maxScale, lockWeeks, _rewardToken) {
+    )
+        StakeBase(
+            maxWeeks,
+            maxScale,
+            lockWeeks,
+            beginTime,
+            endTime,
+            _rewardToken
+        )
+    {
         lpToken = _lpToken;
     }
 
@@ -40,8 +51,13 @@ contract StakeERC20 is StakeBase {
     /// @param k stake the token for k weeks
     function stake(uint256 amount, uint8 k) external {
         require(k > 0 && k <= MAX_WEEKS, "k 1~52");
-        _safeTransferFrom(lpToken, msg.sender, address(this), amount);
+        require(
+            block.timestamp <= END_TIME && block.timestamp >= BEGIN_TIME,
+            "not in the period"
+        );
         uint256 weekNumber = block.timestamp / WEEK_SECONDS + 1;
+        _safeTransferFrom(lpToken, msg.sender, address(this), amount);
+
         uint256 score = getScore(amount, k);
 
         // add score to totalScore of every week
