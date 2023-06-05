@@ -8,8 +8,11 @@ import "./ownable.sol";
 contract StakeBase is Ownable {
     // token address, to set by the owner
     address public immutable rewardToken;
-    // id => week number => reward is claimed or not
-    mapping(uint256 => mapping(uint256 => bool)) public bClaimReward;
+    // user address => week number => score
+    mapping(address => mapping(uint256 => uint256)) public userScores;
+    //user address => [begin week number, end week number]
+    mapping(address => uint256[2]) public userCanClaimWeeks;
+
     // weekNumber => score
     mapping(uint256 => uint256) public totalScores;
     // the owner to set, week number => reward token amount
@@ -23,6 +26,7 @@ contract StakeBase is Ownable {
     uint8 public immutable LOCK_WEEKNUM;
 
     event SetReward(address indexed user, uint256 no, uint256 amount);
+    event ClaimReward(address indexed user, uint256 amount);
 
     constructor(
         uint8 maxWeeks,
@@ -69,6 +73,47 @@ contract StakeBase is Ownable {
         }
         _safeTransferFrom(rewardToken, msg.sender, address(this), total);
         emit SetReward(msg.sender, 0, total);
+    }
+
+    /// @dev claim all the rewards for user's stakingERC20s
+    function claim() external {
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
+        uint256 total = 0;
+        for (
+            uint256 no = userCanClaimWeeks[msg.sender][0];
+            no < userCanClaimWeeks[msg.sender][1];
+            no++
+        ) {
+            // cann't be over the locked week number
+            if (no > weekNumber) {
+                break;
+            }
+            userCanClaimWeeks[msg.sender][0] = no + 1;
+            total +=
+                (rewardsOf[no] * userScores[msg.sender][no]) /
+                totalScores[no];
+        }
+        _safeTransfer(rewardToken, msg.sender, total);
+        emit ClaimReward(msg.sender, total);
+    }
+
+    function canClaimAmount() public view returns (uint256) {
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
+        uint256 total = 0;
+        for (
+            uint256 no = userCanClaimWeeks[msg.sender][0];
+            no < userCanClaimWeeks[msg.sender][1];
+            no++
+        ) {
+            // cann't be over the locked week number
+            if (no > weekNumber) {
+                break;
+            }
+            total +=
+                (rewardsOf[no] * userScores[msg.sender][no]) /
+                totalScores[no];
+        }
+        return total;
     }
 
     /// @dev get the score for amount and k by using a liner equation

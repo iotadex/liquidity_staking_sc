@@ -23,7 +23,6 @@ contract StakeNFT721 is StakeBase {
         uint256 score; // score of the amount
         uint256 beginNo; // as week number, contained
         uint256 endNo; // as week number, not contained
-        uint256 toClaimNo; // the latest week number to claim
     }
     // all the NFTs, tokenId => stakingNFT
     mapping(uint256 => StakingNFT) public stakingNFTs;
@@ -60,15 +59,24 @@ contract StakeNFT721 is StakeBase {
 
         for (uint8 i = 0; i < k; i++) {
             totalScores[weekNumber + i] += score;
+            userScores[msg.sender][weekNumber + i] += score;
         }
 
         stakingNFTs[tokenId] = StakingNFT(
             msg.sender,
             score,
             weekNumber,
-            weekNumber + k,
-            weekNumber
+            weekNumber + k
         );
+        //set user's reward weeks, if begin=end, set current week to the begin
+        if (
+            userCanClaimWeeks[msg.sender][0] == userCanClaimWeeks[msg.sender][1]
+        ) {
+            userCanClaimWeeks[msg.sender][0] = weekNumber;
+        }
+        if (userCanClaimWeeks[msg.sender][1] < (weekNumber + k)) {
+            userCanClaimWeeks[msg.sender][1] = weekNumber + k;
+        }
         userNFTs[msg.sender].push(tokenId);
         emit Stake(msg.sender, tokenId, liquidity, k);
     }
@@ -98,65 +106,6 @@ contract StakeNFT721 is StakeBase {
         emit Withdraw(msg.sender, tokenId);
     }
 
-    /// @dev claim the reward for NFT
-    /// @param tokenId of NFT
-    /// @param nos week numbers
-    function claimReward(uint256 tokenId, uint256[] memory nos) external {
-        require(stakingNFTs[tokenId].owner == msg.sender, "owner forbidden");
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
-        uint256 total = 0;
-        for (uint256 i = 0; i < nos.length; i++) {
-            uint256 no = nos[i];
-            if (bClaimReward[tokenId][no]) {
-                continue;
-            }
-            if (
-                bClaimReward[tokenId][no] ||
-                no >= stakingNFTs[tokenId].endNo ||
-                no < stakingNFTs[tokenId].beginNo ||
-                no > weekNumber ||
-                rewardsOf[no] == 0
-            ) {
-                continue;
-            }
-            bClaimReward[tokenId][no] = true;
-            total +=
-                (rewardsOf[no] * stakingNFTs[tokenId].score) /
-                totalScores[no];
-        }
-        _safeTransfer(rewardToken, msg.sender, total);
-        emit ClaimReward(msg.sender, tokenId, total);
-    }
-
-    /// @dev claim the reward for all the NFTs
-    function claimReward() external {
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
-        uint256 total = 0;
-        for (uint256 i = 0; i < userNFTs[msg.sender].length; i++) {
-            uint256 tokenId = userNFTs[msg.sender][i];
-            for (
-                uint256 no = stakingNFTs[tokenId].toClaimNo;
-                no < stakingNFTs[tokenId].endNo;
-                no++
-            ) {
-                if (
-                    bClaimReward[tokenId][no] ||
-                    no > weekNumber ||
-                    rewardsOf[no] == 0
-                ) {
-                    continue;
-                }
-                bClaimReward[tokenId][no] = true;
-                stakingNFTs[tokenId].toClaimNo = no + 1;
-                total +=
-                    (rewardsOf[no] * stakingNFTs[tokenId].score) /
-                    totalScores[no];
-            }
-        }
-        _safeTransfer(rewardToken, msg.sender, total);
-        emit ClaimReward(msg.sender, 0, total);
-    }
-
     /// @dev get all the user's NFTs that are staking
     /// @return ids the front part are the staking and the back part are expire
     /// @return end is the first index of back part
@@ -176,31 +125,6 @@ contract StakeNFT721 is StakeBase {
             }
         }
         return (ids, end);
-    }
-
-    function canClaimAmount() public view returns (uint256) {
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
-        uint256 total = 0;
-        for (uint256 i = 0; i < userNFTs[msg.sender].length; i++) {
-            uint256 tokenId = userNFTs[msg.sender][i];
-            for (
-                uint256 no = stakingNFTs[tokenId].toClaimNo;
-                no < stakingNFTs[tokenId].endNo;
-                no++
-            ) {
-                if (
-                    bClaimReward[tokenId][no] ||
-                    no > weekNumber ||
-                    rewardsOf[no] == 0
-                ) {
-                    continue;
-                }
-                total +=
-                    (rewardsOf[no] * stakingNFTs[tokenId].score) /
-                    totalScores[no];
-            }
-        }
-        return total;
     }
 
     /// @dev deposit user's NFT to this contract

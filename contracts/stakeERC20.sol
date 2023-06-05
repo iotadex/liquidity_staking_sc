@@ -14,7 +14,6 @@ contract StakeERC20 is StakeBase {
         uint256 score; // score of the amount
         uint256 beginNo; // as week number, contained
         uint256 endNo; // as week number, not contained
-        uint256 toClaimNo; //the latest week number to claim
     }
     // the current index id to stake
     uint256 public nonce;
@@ -25,7 +24,6 @@ contract StakeERC20 is StakeBase {
 
     event Stake(address indexed user, uint256 id, uint256 amount, uint8 k);
     event Withdraw(address indexed user, uint256 amount);
-    event ClaimReward(address indexed user, uint256 amount);
 
     constructor(
         uint8 maxWeeks,
@@ -49,25 +47,32 @@ contract StakeERC20 is StakeBase {
         // add score to totalScore of every week
         for (uint8 i = 0; i < k; i++) {
             totalScores[weekNumber + i] += score;
+            userScores[msg.sender][weekNumber + i] += score;
         }
 
         stakingERC20s[nonce] = StakingERC20(
             amount,
             score,
             weekNumber,
-            weekNumber + k,
-            weekNumber
+            weekNumber + k
         );
-
+        //set user's reward weeks, if begin=end, set current week to the begin
+        if (
+            userCanClaimWeeks[msg.sender][0] == userCanClaimWeeks[msg.sender][1]
+        ) {
+            userCanClaimWeeks[msg.sender][0] = weekNumber;
+        }
+        if (userCanClaimWeeks[msg.sender][1] < (weekNumber + k)) {
+            userCanClaimWeeks[msg.sender][1] = weekNumber + k;
+        }
         userERC20s[msg.sender].push(nonce);
         emit Stake(msg.sender, nonce, amount, k);
         nonce++;
     }
 
     /// @dev withdraw token to the caller, if the amount is not enough, it will be as close as possible
-    /// @param amount the token amount
     /// @return total the real amount of erc20 token transfered
-    function withdraw(uint256 amount) external returns (uint256 total) {
+    function withdraw() external returns (uint256 total) {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         for (uint256 i = userERC20s[msg.sender].length - 1; i >= 0; i--) {
             // foreach every StakingERC20 from the last one
@@ -75,20 +80,10 @@ contract StakeERC20 is StakeBase {
             if (stakingERC20s[id].endNo <= weekNumber) {
                 // when the staking erc20 token expire
                 total += stakingERC20s[id].amount;
-                if (total <= amount) {
-                    // if total is not bigger than amount, delete the staking token
-                    userERC20s[msg.sender][i] = userERC20s[msg.sender][
-                        userERC20s[msg.sender].length - 1
-                    ];
-                    userERC20s[msg.sender].pop();
-                } else {
-                    // modify the amount of stakingERC20 to the left
-                    stakingERC20s[id].amount = total - amount;
-                    total = amount;
-                }
-                if (total == amount) {
-                    break;
-                }
+                userERC20s[msg.sender][i] = userERC20s[msg.sender][
+                    userERC20s[msg.sender].length - 1
+                ];
+                userERC20s[msg.sender].pop();
             }
         }
         _safeTransfer(lpToken, msg.sender, total);
@@ -96,76 +91,12 @@ contract StakeERC20 is StakeBase {
         return total;
     }
 
-    /// @dev claim all the rewards for user's stakingERC20s
-    function claimReward() external {
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
-        uint256 total = 0;
-        for (uint256 i = 0; i < userERC20s[msg.sender].length; i++) {
-            uint256 id = userERC20s[msg.sender][i];
-            for (
-                uint256 no = stakingERC20s[id].toClaimNo;
-                no < stakingERC20s[id].endNo;
-                no++
-            ) {
-                if (
-                    bClaimReward[id][no] || // cann't be claimed
-                    no > weekNumber || // cann't be over the locked week number
-                    rewardsOf[no] == 0 // cann't claim which don't set
-                ) {
-                    continue;
-                }
-                bClaimReward[id][no] = true;
-                stakingERC20s[id].toClaimNo = no + 1;
-                total +=
-                    (rewardsOf[no] * stakingERC20s[id].score) /
-                    totalScores[no];
-            }
+    function getStakes() external view returns (StakingERC20[] memory) {
+        uint256 size = userERC20s[msg.sender].length;
+        StakingERC20[] memory s = new StakingERC20[](size);
+        for (uint256 i = 0; i < size; i++) {
+            s[i] = stakingERC20s[userERC20s[msg.sender][i]];
         }
-        _safeTransfer(rewardToken, msg.sender, total);
-        emit ClaimReward(msg.sender, total);
-    }
-
-    /// @dev get the amount of user is staking
-    /// @return total all amount of lp token in this contract
-    /// @return staking the staking amount of lp token in this contract
-    function getStaking()
-        external
-        view
-        returns (uint256 total, uint256 staking)
-    {
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
-        for (uint256 i = 0; i < userERC20s[msg.sender].length; i++) {
-            uint256 id = userERC20s[msg.sender][i];
-            uint256 amount = stakingERC20s[id].amount;
-            if (stakingERC20s[id].endNo > weekNumber) {
-                staking += amount;
-            }
-            total += amount;
-        }
-    }
-
-    function canClaimAmount() public view returns (uint256) {
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
-        uint256 total = 0;
-        for (uint256 i = 0; i < userERC20s[msg.sender].length; i++) {
-            uint256 id = userERC20s[msg.sender][i];
-            for (
-                uint256 no = stakingERC20s[id].toClaimNo;
-                no < stakingERC20s[id].endNo;
-                no++
-            ) {
-                if (
-                    bClaimReward[id][no] || // cann't be claimed
-                    no > weekNumber || // cann't be over the locked week number
-                    rewardsOf[no] == 0 // cann't claim which don't set
-                ) {
-                    continue;
-                }
-                total +=
-                    (rewardsOf[no] * stakingERC20s[id].score) /
-                    totalScores[no];
-            }
-        }
-        return total;
+        return s;
     }
 }
