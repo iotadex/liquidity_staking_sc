@@ -76,7 +76,7 @@ contract StakeBase is Ownable {
     }
 
     /// @dev claim all the rewards for user's stakingERC20s
-    function claim() external {
+    function claimReward() external {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
         uint256 total = 0;
         for (

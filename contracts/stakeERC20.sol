@@ -91,7 +91,7 @@ contract StakeERC20 is StakeBase {
         return total;
     }
 
-    function getStakes() external view returns (StakingERC20[] memory) {
+    function getStaking() external view returns (StakingERC20[] memory) {
         uint256 size = userERC20s[msg.sender].length;
         StakingERC20[] memory s = new StakingERC20[](size);
         for (uint256 i = 0; i < size; i++) {
