@@ -130,7 +130,7 @@ contract StakeNFT721 is StakeBase {
 
     /// @dev claim the reward for all the NFTs
     function claimReward() external {
-        uint256 weekNumber = block.timestamp / WEEK_SECONDS;
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
         uint256 total = 0;
         for (uint256 i = 0; i < userNFTs[msg.sender].length; i++) {
             uint256 tokenId = userNFTs[msg.sender][i];
@@ -176,6 +176,31 @@ contract StakeNFT721 is StakeBase {
             }
         }
         return (ids, end);
+    }
+
+    function canClaimAmount() public view returns (uint256) {
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
+        uint256 total = 0;
+        for (uint256 i = 0; i < userNFTs[msg.sender].length; i++) {
+            uint256 tokenId = userNFTs[msg.sender][i];
+            for (
+                uint256 no = stakingNFTs[tokenId].toClaimNo;
+                no < stakingNFTs[tokenId].endNo;
+                no++
+            ) {
+                if (
+                    bClaimReward[tokenId][no] ||
+                    no > weekNumber ||
+                    rewardsOf[no] == 0
+                ) {
+                    continue;
+                }
+                total +=
+                    (rewardsOf[no] * stakingNFTs[tokenId].score) /
+                    totalScores[no];
+            }
+        }
+        return total;
     }
 
     /// @dev deposit user's NFT to this contract

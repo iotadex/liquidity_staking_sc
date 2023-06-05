@@ -143,4 +143,29 @@ contract StakeERC20 is StakeBase {
             total += amount;
         }
     }
+
+    function canClaimAmount() public view returns (uint256) {
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
+        uint256 total = 0;
+        for (uint256 i = 0; i < userERC20s[msg.sender].length; i++) {
+            uint256 id = userERC20s[msg.sender][i];
+            for (
+                uint256 no = stakingERC20s[id].toClaimNo;
+                no < stakingERC20s[id].endNo;
+                no++
+            ) {
+                if (
+                    bClaimReward[id][no] || // cann't be claimed
+                    no > weekNumber || // cann't be over the locked week number
+                    rewardsOf[no] == 0 // cann't claim which don't set
+                ) {
+                    continue;
+                }
+                total +=
+                    (rewardsOf[no] * stakingERC20s[id].score) /
+                    totalScores[no];
+            }
+        }
+        return total;
+    }
 }

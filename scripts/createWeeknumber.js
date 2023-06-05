@@ -11,7 +11,7 @@ async function main() {
     wn = parseInt(timestamp / 600);
     var wns = new Array();
     var rws = new Array();
-    for (var i = 0; i < 500; i++) {
+    for (var i = 0; i < 1000; i++) {
         wns[i] = wn + i;
         rws[i] = 10000000000000000000000n;
     }
