@@ -96,14 +96,13 @@ contract StakeBase is Ownable {
             no < userCanClaimWeeks[msg.sender][1];
             no++
         ) {
-            // cann't be over the locked week number
             if (no > weekNumber) {
                 break;
             }
+            userCanClaimWeeks[msg.sender][0] = no + 1;
             if (totalScores[no] == 0) {
                 continue;
             }
-            userCanClaimWeeks[msg.sender][0] = no + 1;
             total +=
                 (rewardsOf[no] * userScores[msg.sender][no]) /
                 totalScores[no];
