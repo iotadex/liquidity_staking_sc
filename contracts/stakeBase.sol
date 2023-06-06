@@ -109,23 +109,47 @@ contract StakeBase is Ownable {
         emit ClaimReward(msg.sender, total);
     }
 
-    function calculateRewardAmount() public view returns (uint256, uint256) {
+    function canClaimAmount() public view returns (uint256) {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
         uint256 total = 0;
-        uint256 canClaim = 0;
         for (
             uint256 no = userCanClaimWeeks[msg.sender][0];
             no < userCanClaimWeeks[msg.sender][1];
             no++
         ) {
-            uint256 amount = (rewardsOf[no] * userScores[msg.sender][no]) /
-                totalScores[no];
-            if (no <= weekNumber) {
-                canClaim += amount;
+            // cann't be over the locked week number
+            if (no > weekNumber) {
+                break;
             }
-            total += amount;
+            total +=
+                (rewardsOf[no] * userScores[msg.sender][no]) /
+                totalScores[no];
         }
-        return (total, canClaim);
+        return total;
+    }
+
+    function lockedRewardAmount()
+        public
+        view
+        returns (uint256, uint256[] memory)
+    {
+        uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM + 1;
+        if (userCanClaimWeeks[msg.sender][1] <= weekNumber) {
+            return (weekNumber, new uint256[](0));
+        }
+        uint256[] memory amountList = new uint256[](
+            userCanClaimWeeks[msg.sender][1] - weekNumber
+        );
+        for (
+            uint256 no = weekNumber;
+            no < userCanClaimWeeks[msg.sender][1];
+            no++
+        ) {
+            amountList[no - weekNumber] =
+                (rewardsOf[no] * userScores[msg.sender][no]) /
+                totalScores[no];
+        }
+        return (weekNumber, amountList);
     }
 
     /// @dev get the score for amount and k by using a liner equation
