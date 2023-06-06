@@ -109,23 +109,23 @@ contract StakeBase is Ownable {
         emit ClaimReward(msg.sender, total);
     }
 
-    function canClaimAmount() public view returns (uint256) {
+    function calculateRewardAmount() public view returns (uint256, uint256) {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
         uint256 total = 0;
+        uint256 canClaim = 0;
         for (
             uint256 no = userCanClaimWeeks[msg.sender][0];
             no < userCanClaimWeeks[msg.sender][1];
             no++
         ) {
-            // cann't be over the locked week number
-            if (no > weekNumber) {
-                break;
-            }
-            total +=
-                (rewardsOf[no] * userScores[msg.sender][no]) /
+            uint256 amount = (rewardsOf[no] * userScores[msg.sender][no]) /
                 totalScores[no];
+            if (no <= weekNumber) {
+                canClaim += amount;
+            }
+            total += amount;
         }
-        return total;
+        return (total, canClaim);
     }
 
     /// @dev get the score for amount and k by using a liner equation
