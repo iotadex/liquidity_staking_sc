@@ -86,9 +86,10 @@ contract StakeERC20 is StakeBase {
         nonce++;
     }
 
-    /// @dev withdraw token to the caller, if the amount is not enough, it will be as close as possible
+    /// @dev withdraw token to the caller
     /// @return total the real amount of erc20 token transfered
-    function withdraw() external returns (uint256 total) {
+    function withdraw() external returns (uint256) {
+        uint256 total = 0;
         uint256 weekNumber = block.timestamp / WEEK_SECONDS;
         for (uint256 i = userERC20s[msg.sender].length - 1; i >= 0; i--) {
             // foreach every StakingERC20 from the last one
@@ -106,6 +107,7 @@ contract StakeERC20 is StakeBase {
             _safeTransfer(lpToken, msg.sender, total);
         }
         emit Withdraw(msg.sender, total);
+        return total;
     }
 
     function getStaking() external view returns (StakingERC20[] memory) {

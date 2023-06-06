@@ -91,15 +91,16 @@ contract StakeBase is Ownable {
     function claimReward() external {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
         uint256 total = 0;
+        uint256 updataNo = userCanClaimWeeks[msg.sender][0];
         for (
-            uint256 no = userCanClaimWeeks[msg.sender][0];
+            uint256 no = updataNo;
             no < userCanClaimWeeks[msg.sender][1];
             no++
         ) {
             if (no > weekNumber) {
                 break;
             }
-            userCanClaimWeeks[msg.sender][0] = no + 1;
+            updataNo = no + 1;
             if (totalScores[no] == 0) {
                 continue;
             }
@@ -107,6 +108,7 @@ contract StakeBase is Ownable {
                 (rewardsOf[no] * userScores[msg.sender][no]) /
                 totalScores[no];
         }
+        userCanClaimWeeks[msg.sender][0] = updataNo;
         _safeTransfer(rewardToken, msg.sender, total);
         emit ClaimReward(msg.sender, total);
     }
@@ -142,20 +144,20 @@ contract StakeBase is Ownable {
         if (userCanClaimWeeks[msg.sender][1] <= weekNumber) {
             return (weekNumber, new uint256[](0));
         }
-        uint256 bI = userCanClaimWeeks[msg.sender][1] - weekNumber;
-        bI = bI > userCanClaimWeeks[msg.sender][0]
-            ? bI
-            : userCanClaimWeeks[msg.sender][0];
+        uint256 bI = userCanClaimWeeks[msg.sender][0] > weekNumber
+            ? userCanClaimWeeks[msg.sender][0]
+            : weekNumber;
         uint256[] memory amountList = new uint256[](
             userCanClaimWeeks[msg.sender][1] - bI
         );
         for (uint256 no = bI; no < userCanClaimWeeks[msg.sender][1]; no++) {
             if (totalScores[no] == 0) {
-                continue;
+                amountList[no - bI] = 0;
+            } else {
+                amountList[no - bI] =
+                    (rewardsOf[no] * userScores[msg.sender][no]) /
+                    totalScores[no];
             }
-            amountList[no - weekNumber] =
-                (rewardsOf[no] * userScores[msg.sender][no]) /
-                totalScores[no];
         }
         return (weekNumber, amountList);
     }
