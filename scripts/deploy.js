@@ -9,7 +9,7 @@ const hre = require("hardhat");
 async function main() {
   const rewardToken = "0x3Cf63EB3afE4b4717e78eAe99d632321fc5Ce519";
   const StakeERC20 = await hre.ethers.getContractFactory("StakeERC20");
-  const erc20 = await StakeERC20.deploy(52, 2, 52, rewardToken, "0x406153d92579841835E820Ed2631384CA6910dE0");
+  const erc20 = await StakeERC20.deploy(52, 2, 52, 0, 999999999999999999n, rewardToken, "0x406153d92579841835E820Ed2631384CA6910dE0");
   await erc20.deployed();
   console.log(`deployed StakeERC20 to ${erc20.address}`);
   return;
