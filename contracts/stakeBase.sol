@@ -20,9 +20,9 @@ contract StakeBase is Ownable {
     // the lastest week number
     uint256 public latestNo;
 
+    uint24 public constant WEEK_SECONDS = 600;
     uint8 public immutable MAX_WEEKS;
     uint256 public immutable MAX_SCALE;
-    uint24 public constant WEEK_SECONDS = 600;
     uint8 public immutable LOCK_WEEKNUM;
     uint256 public immutable BEGIN_TIME;
     uint256 public immutable END_TIME;
@@ -100,6 +100,9 @@ contract StakeBase is Ownable {
             if (no > weekNumber) {
                 break;
             }
+            if (totalScores[no] == 0) {
+                continue;
+            }
             userCanClaimWeeks[msg.sender][0] = no + 1;
             total +=
                 (rewardsOf[no] * userScores[msg.sender][no]) /
@@ -121,6 +124,9 @@ contract StakeBase is Ownable {
             if (no > weekNumber) {
                 break;
             }
+            if (totalScores[no] == 0) {
+                continue;
+            }
             total +=
                 (rewardsOf[no] * userScores[msg.sender][no]) /
                 totalScores[no];
@@ -137,14 +143,17 @@ contract StakeBase is Ownable {
         if (userCanClaimWeeks[msg.sender][1] <= weekNumber) {
             return (weekNumber, new uint256[](0));
         }
+        uint256 bI = userCanClaimWeeks[msg.sender][1] - weekNumber;
+        bI = bI > userCanClaimWeeks[msg.sender][0]
+            ? bI
+            : userCanClaimWeeks[msg.sender][0];
         uint256[] memory amountList = new uint256[](
-            userCanClaimWeeks[msg.sender][1] - weekNumber
+            userCanClaimWeeks[msg.sender][1] - bI
         );
-        for (
-            uint256 no = weekNumber;
-            no < userCanClaimWeeks[msg.sender][1];
-            no++
-        ) {
+        for (uint256 no = bI; no < userCanClaimWeeks[msg.sender][1]; no++) {
+            if (totalScores[no] == 0) {
+                continue;
+            }
             amountList[no - weekNumber] =
                 (rewardsOf[no] * userScores[msg.sender][no]) /
                 totalScores[no];

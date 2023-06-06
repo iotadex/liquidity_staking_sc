@@ -102,9 +102,10 @@ contract StakeERC20 is StakeBase {
                 userERC20s[msg.sender].pop();
             }
         }
-        _safeTransfer(lpToken, msg.sender, total);
+        if (total > 0) {
+            _safeTransfer(lpToken, msg.sender, total);
+        }
         emit Withdraw(msg.sender, total);
-        return total;
     }
 
     function getStaking() external view returns (StakingERC20[] memory) {
