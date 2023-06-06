@@ -51,7 +51,7 @@ contract StakeBase is Ownable {
     /// @dev set rewardToken to this contract, with transfering token
     /// @param no the week number
     /// @param amount the reward amount for rewardToken
-    function setReward(uint256 no, uint256 amount) private {
+    function setReward(uint256 no, uint256 amount) external {
         require(msg.sender == owner, "forbidden");
         _safeTransferFrom(rewardToken, msg.sender, address(this), amount);
         rewardsOf[no] += amount;
