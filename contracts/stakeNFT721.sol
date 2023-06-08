@@ -73,11 +73,12 @@ contract StakeNFT721 is StakeBase {
             userScores[msg.sender][weekNumber + i] += score;
         }
 
+        uint256 endWeek = weekNumber + k; //for gas saving
         stakingNFTs[tokenId] = StakingNFT(
             msg.sender,
             score,
             weekNumber,
-            weekNumber + k
+            endWeek
         );
         //set user's reward weeks, if begin=end, set current week to the begin
         if (
@@ -85,8 +86,8 @@ contract StakeNFT721 is StakeBase {
         ) {
             userCanClaimWeeks[msg.sender][0] = weekNumber;
         }
-        if (userCanClaimWeeks[msg.sender][1] < (weekNumber + k)) {
-            userCanClaimWeeks[msg.sender][1] = weekNumber + k;
+        if (userCanClaimWeeks[msg.sender][1] < endWeek) {
+            userCanClaimWeeks[msg.sender][1] = endWeek;
         }
         userNFTs[msg.sender].push(tokenId);
         emit Stake(msg.sender, tokenId, liquidity, k);

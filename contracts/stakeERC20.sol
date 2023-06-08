@@ -66,20 +66,16 @@ contract StakeERC20 is StakeBase {
             userScores[msg.sender][weekNumber + i] += score;
         }
 
-        stakingERC20s[nonce] = StakingERC20(
-            amount,
-            score,
-            weekNumber,
-            weekNumber + k
-        );
+        uint256 endWeek = weekNumber + k; //for gas saving
+        stakingERC20s[nonce] = StakingERC20(amount, score, weekNumber, endWeek);
         //set user's reward weeks, if begin=end, set current week to the begin
         if (
             userCanClaimWeeks[msg.sender][0] == userCanClaimWeeks[msg.sender][1]
         ) {
             userCanClaimWeeks[msg.sender][0] = weekNumber;
         }
-        if (userCanClaimWeeks[msg.sender][1] < (weekNumber + k)) {
-            userCanClaimWeeks[msg.sender][1] = weekNumber + k;
+        if (userCanClaimWeeks[msg.sender][1] < endWeek) {
+            userCanClaimWeeks[msg.sender][1] = endWeek;
         }
         userERC20s[msg.sender].push(nonce);
         emit Stake(msg.sender, nonce, amount, k);

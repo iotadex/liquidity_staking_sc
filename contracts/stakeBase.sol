@@ -53,6 +53,10 @@ contract StakeBase is Ownable {
     /// @param amount the reward amount for rewardToken
     function setReward(uint256 no, uint256 amount) external {
         require(msg.sender == owner, "forbidden");
+        require(
+            block.timestamp <= END_TIME && block.timestamp >= BEGIN_TIME,
+            "not in the period"
+        );
         _safeTransferFrom(rewardToken, msg.sender, address(this), amount);
         rewardsOf[no] += amount;
         if (no > latestNo) {
@@ -70,14 +74,20 @@ contract StakeBase is Ownable {
         uint256[] memory amounts
     ) external returns (uint256 total) {
         require(msg.sender == owner, "forbidden");
+        require(
+            block.timestamp <= END_TIME && block.timestamp >= BEGIN_TIME,
+            "not in the period"
+        );
         require(nos.length == amounts.length, "parameters error");
+        uint256 lno = 0; // gas saved
         for (uint256 i = 0; i < nos.length; i++) {
             total += amounts[i];
             rewardsOf[nos[i]] = amounts[i];
-            if (nos[i] > latestNo) {
-                latestNo = nos[i];
+            if (nos[i] > lno) {
+                lno = nos[i];
             }
         }
+        latestNo = lno;
         _safeTransferFrom(rewardToken, msg.sender, address(this), total);
         emit SetReward(msg.sender, 0, total);
     }
@@ -87,7 +97,7 @@ contract StakeBase is Ownable {
         _safeTransfer(rewardToken, msg.sender, amount);
     }
 
-    /// @dev claim all the rewards for user's stakingERC20s
+    /// @dev claim all the rewards for user's staking
     function claimReward() external {
         uint256 weekNumber = block.timestamp / WEEK_SECONDS - LOCK_WEEKNUM;
         uint256 total = 0;
