@@ -154,13 +154,13 @@ contract StakeBase is Ownable {
         if (userCanClaimWeeks[msg.sender][1] <= weekNumber) {
             return (weekNumber, new uint256[](0));
         }
-        uint256 bI = userCanClaimWeeks[msg.sender][0] > weekNumber
-            ? userCanClaimWeeks[msg.sender][0]
-            : weekNumber;
-        uint256[] memory amountList = new uint256[](
-            userCanClaimWeeks[msg.sender][1] - bI
+        (uint256 w1, uint256 w2) = (
+            userCanClaimWeeks[msg.sender][0],
+            userCanClaimWeeks[msg.sender][1]
         );
-        for (uint256 no = bI; no < userCanClaimWeeks[msg.sender][1]; no++) {
+        uint256 bI = w1 > weekNumber ? w1 : weekNumber;
+        uint256[] memory amountList = new uint256[](w2 - bI);
+        for (uint256 no = bI; no < w2; no++) {
             if (totalScores[no] == 0) {
                 amountList[no - bI] = 0;
             } else {
@@ -169,7 +169,8 @@ contract StakeBase is Ownable {
                     totalScores[no];
             }
         }
-        return (weekNumber, amountList);
+        uint256 first = LOCK_WEEKNUM - (block.timestamp / WEEK_SECONDS - bI);
+        return (first, amountList);
     }
 
     /// @dev get the score for amount and k by using a liner equation

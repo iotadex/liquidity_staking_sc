@@ -8,9 +8,9 @@ import "./stakeBase.sol";
 
 contract StakeNFT721 is StakeBase {
     /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
-    int24 internal constant MIN_TICK = -887272;
+    int24 internal immutable MIN_TICK;
     /// @dev The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
-    int24 internal constant MAX_TICK = -MIN_TICK;
+    int24 internal immutable MAX_TICK;
 
     // nft token address for swap of v3
     IIotabeeSwapNFT public immutable nftToken;
@@ -42,7 +42,8 @@ contract StakeNFT721 is StakeBase {
         address _rewardToken,
         address tokenA,
         address tokenB,
-        address nft
+        address nft,
+        int24 tickMin
     )
         StakeBase(
             maxWeeks,
@@ -57,6 +58,8 @@ contract StakeNFT721 is StakeBase {
             ? (tokenA, tokenB)
             : (tokenB, tokenA);
         nftToken = IIotabeeSwapNFT(nft);
+        MIN_TICK = tickMin;
+        MAX_TICK = -MIN_TICK;
     }
 
     /// @dev stake NFT for k weeks
