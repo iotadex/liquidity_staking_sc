@@ -161,15 +161,12 @@ contract StakeBase is Ownable {
         uint256 bI = w1 > weekNumber ? w1 : weekNumber;
         uint256[] memory amountList = new uint256[](w2 - bI);
         for (uint256 no = bI; no < w2; no++) {
-            if (totalScores[no] == 0) {
-                amountList[no - bI] = 0;
-            } else {
-                amountList[no - bI] =
-                    (rewardsOf[no] * userScores[msg.sender][no]) /
+            amountList[no - bI] = totalScores[no] == 0
+                ? 0
+                : (rewardsOf[no] * userScores[msg.sender][no]) /
                     totalScores[no];
-            }
         }
-        uint256 first = LOCK_WEEKNUM - (block.timestamp / WEEK_SECONDS - bI);
+        uint256 first = LOCK_WEEKNUM - block.timestamp / WEEK_SECONDS + bI;
         return (first, amountList);
     }
 
