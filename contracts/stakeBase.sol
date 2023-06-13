@@ -166,7 +166,7 @@ contract StakeBase is Ownable {
                 : (rewardsOf[no] * userScores[msg.sender][no]) /
                     totalScores[no];
         }
-        uint256 first = LOCK_WEEKNUM - block.timestamp / WEEK_SECONDS + bI;
+        uint256 first = LOCK_WEEKNUM + bI - block.timestamp / WEEK_SECONDS;
         return (first, amountList);
     }
 
