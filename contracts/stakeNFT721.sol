@@ -17,6 +17,7 @@ contract StakeNFT721 is StakeBase {
     // token0, token1 are the pair of pool, token0 < token1
     address public immutable token0;
     address public immutable token1;
+    uint public fee;
 
     struct StakingNFT {
         address owner; // owner of NFT
@@ -31,7 +32,6 @@ contract StakeNFT721 is StakeBase {
 
     event Stake(address indexed user, uint256 tokenId, uint256 amount, uint8 k);
     event Withdraw(address indexed user, uint256 tokenId);
-    event ClaimReward(address indexed user, uint256 tokenId, uint256 amount);
 
     constructor(
         uint8 maxWeeks,
@@ -42,6 +42,7 @@ contract StakeNFT721 is StakeBase {
         address _rewardToken,
         address tokenA,
         address tokenB,
+        uint24 _fee,
         address nft,
         int24 tickMin
     )
@@ -57,6 +58,7 @@ contract StakeNFT721 is StakeBase {
         (token0, token1) = tokenA < tokenB
             ? (tokenA, tokenB)
             : (tokenB, tokenA);
+        fee = _fee;
         nftToken = IIotabeeSwapNFT(nft);
         MIN_TICK = tickMin;
         MAX_TICK = -MIN_TICK;
@@ -150,7 +152,7 @@ contract StakeNFT721 is StakeBase {
             ,
             address t0,
             address t1,
-            ,
+            uint24 f,
             int24 tickLower,
             int24 tickUpper,
             uint128 liquidity,
@@ -159,7 +161,10 @@ contract StakeNFT721 is StakeBase {
             ,
 
         ) = nftToken.positions(tokenId);
-        require((t0 == token0) && (t1 == token1), "lp pair error");
+        require(
+            (t0 == token0) && (t1 == token1) && (fee == f),
+            "lp pair error"
+        );
         require(
             (tickLower == MIN_TICK) && (tickUpper == MAX_TICK),
             "tick range error"
