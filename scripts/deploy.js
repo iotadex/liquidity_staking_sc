@@ -27,13 +27,12 @@ async function main() {
           int24 tickMin
   */
   const t0 = "0x3cf63eb3afe4b4717e78eae99d632321fc5ce519";
-  const t1 = "0xe2aC8A14901B17b5cDf7c15F414127d9bcC57A73";
+  const t1 = "0x8202AC9838d3F199D3BaD2336e05e52507146659";
   const fee = 10000;
-  const NFT = "0xEe610aE2b68b5549F231bf9152FFA2907a09ABC8";
-  const tcikMin = 887200;
-  console.log(`tcikMin is ${tcikMin}`);
+  const NFT = "0xdE6dE59e33f61eB6B9F4f183323Cf505375906D6";
+  const tcikMax = 887200;
   const StakeNFT721 = await hre.ethers.getContractFactory("StakeNFT721");
-  const nft = await StakeNFT721.deploy(52, 2, 52, 0, 999999999999999999n, rewardToken, t0, t1, fee, NFT, tcikMin);
+  const nft = await StakeNFT721.deploy(52, 2, 52, 0, 999999999999999999n, rewardToken, t0, t1, fee, NFT, tcikMax);
   await nft.deployed();
   console.log(`deployed StakeNFT721 to ${nft.address}`);
 }
