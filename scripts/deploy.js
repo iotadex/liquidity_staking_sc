@@ -26,7 +26,7 @@ async function main() {
           address nft,
           int24 tickMin
   */
-  const t0 = "0x3cf63eb3afe4b4717e78eae99d632321fc5ce519";
+  const t0 = "0x3Cf63EB3afE4b4717e78eAe99d632321fc5Ce519";
   const t1 = "0x8202AC9838d3F199D3BaD2336e05e52507146659";
   const fee = 10000;
   const NFT = "0xdE6dE59e33f61eB6B9F4f183323Cf505375906D6";

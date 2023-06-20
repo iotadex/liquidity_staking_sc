@@ -6,7 +6,9 @@ pragma solidity =0.8.17;
 import "./interfaces/IIotabeeSwapNFT.sol";
 import "./stakeBase.sol";
 
-contract StakeNFT721 is StakeBase {
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+
+contract StakeNFT721 is StakeBase, IERC721Receiver {
     /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
     int24 public immutable MIN_TICK;
     /// @dev The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
@@ -17,7 +19,7 @@ contract StakeNFT721 is StakeBase {
     // token0, token1 are the pair of pool, token0 < token1
     address public immutable token0;
     address public immutable token1;
-    uint public fee;
+    uint24 public immutable fee;
 
     struct StakingNFT {
         address owner; // owner of NFT
@@ -173,5 +175,14 @@ contract StakeNFT721 is StakeBase {
         require(nftToken.getApproved(tokenId) == address(this), "not approve");
         nftToken.safeTransferFrom(msg.sender, address(this), tokenId);
         return liquidity;
+    }
+
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes memory
+    ) external pure returns (bytes4) {
+        return this.onERC721Received.selector;
     }
 }
