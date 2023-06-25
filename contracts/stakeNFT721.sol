@@ -70,11 +70,17 @@ contract StakeNFT721 is StakeBase, IERC721Receiver {
     /// @param tokenId the tokenId of NFT
     /// @param k stake the token for k weeks
     function stake(uint256 tokenId, uint8 k) external {
-        require(k > 0 && k <= MAX_WEEKS, "stake weeks error");
-        uint256 liquidity = _deposit(tokenId);
+        require(k > 0 && k <= MAX_WEEKS, "k 1~52");
+        require(
+            block.timestamp <= END_TIME && block.timestamp >= BEGIN_TIME,
+            "not in the period"
+        );
         uint256 weekNumber = block.timestamp / WEEK_SECONDS + 1;
+
+        uint256 liquidity = _deposit(tokenId);
         uint256 score = getScore(liquidity, k);
 
+        // add score to totalScore of every week
         for (uint8 i = 0; i < k; i++) {
             totalScores[weekNumber + i] += score;
             userScores[msg.sender][weekNumber + i] += score;

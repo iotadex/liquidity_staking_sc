@@ -56,8 +56,8 @@ contract StakeERC20 is StakeBase {
             "not in the period"
         );
         uint256 weekNumber = block.timestamp / WEEK_SECONDS + 1;
-        _safeTransferFrom(lpToken, msg.sender, address(this), amount);
 
+        _safeTransferFrom(lpToken, msg.sender, address(this), amount);
         uint256 score = getScore(amount, k);
 
         // add score to totalScore of every week
